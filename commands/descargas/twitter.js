@@ -1,4 +1,7 @@
-const YtDlp = require('@distube/yt-dlp').default || require('@distube/yt-dlp');
+const YtDlpModule = require('@distube/yt-dlp');
+const YtDlp = YtDlpModule.YtDlp || YtDlpModule.default || YtDlpModule;
+const ytdlp = new YtDlp();
+
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
@@ -18,7 +21,6 @@ module.exports = {
             );
         }
 
-        // Validar enlace de Twitter/X
         const isTwitterLink = /(https?:\/\/)?(www\.|mobile\.)?(twitter\.com|x\.com)\/([a-zA-Z0-9_]+)\/status\/[0-9]+/i.test(text);
 
         if (!isTwitterLink) {
@@ -29,7 +31,6 @@ module.exports = {
             );
         }
 
-        // Crear nombre temporal único para guardar el video
         const tempId = Date.now();
         const outputDir = path.join(__dirname, '../../tmp');
         if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
@@ -37,14 +38,12 @@ module.exports = {
         const outputFilePath = path.join(outputDir, `twitter_${tempId}.mp4`);
 
         try {
-            // 1. Obtener la información del video en JSON usando el método estático
-            const info = await YtDlp.getVideoInfo(text);
+            const info = await ytdlp.getVideoInfo(text);
 
             const tweetText = info.description || info.title || 'Video de Twitter / X';
             const duration = info.duration_string || `${info.duration || 0}s`;
             const thumbUrl = info.thumbnail;
 
-            // --- 1ER MENSAJE: FOTO MINIATURA CON LA INFORMACIÓN ---
             const infoCaption = 
 `❀ Título » ${tweetText}
 
@@ -69,24 +68,20 @@ module.exports = {
                 await Minato.sendMessage(m.chat, { text: infoCaption }, { quoted: m.raw });
             }
 
-            // 2. Descargar el video físicamente usando el método estático execPromise
-            await YtDlp.execPromise([
+            await ytdlp.execPromise([
                 text,
                 '-f', 'b[ext=mp4]/bv*+ba/b',
                 '-o', outputFilePath
             ]);
 
-            // Leer el archivo descargado
             const videoBuffer = fs.readFileSync(outputFilePath);
 
-            // --- 2DO MENSAJE: VIDEO CON EL TEXTO DIRECTO ---
             await Minato.sendMessage(m.chat, {
                 video: videoBuffer,
                 caption: tweetText,
                 mimetype: 'video/mp4'
             }, { quoted: m.raw });
 
-            // Eliminar archivo temporal
             if (fs.existsSync(outputFilePath)) {
                 fs.unlinkSync(outputFilePath);
             }
@@ -94,7 +89,6 @@ module.exports = {
         } catch (e) {
             console.error('Error con yt-dlp en Twitter:', e);
 
-            // Limpieza en caso de error
             if (fs.existsSync(outputFilePath)) {
                 fs.unlinkSync(outputFilePath);
             }
