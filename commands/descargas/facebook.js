@@ -1,10 +1,9 @@
-const { exec } = require('child_process');
-const util = require('util');
+const { YtDlp } = require('@distube/yt-dlp');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
-const execPromise = util.promisify(exec);
+const ytdlp = new YtDlp();
 
 module.exports = {
     name: 'fb',
@@ -40,10 +39,8 @@ module.exports = {
         const outputFilePath = path.join(outputDir, `facebook_${tempId}.mp4`);
 
         try {
-            // 1. Obtener la información del video en JSON mediante yt-dlp
-            const infoCmd = `yt-dlp --dump-json "${text}"`;
-            const { stdout } = await execPromise(infoCmd);
-            const info = JSON.parse(stdout);
+            // 1. Obtener la información del video en JSON mediante @distube/yt-dlp
+            const info = await ytdlp.getVideoInfo(text);
 
             const fbText = info.description || info.title || 'Video de Facebook';
             const duration = info.duration_string || (info.duration ? `${info.duration}s` : 'Desconocida');
@@ -75,8 +72,11 @@ module.exports = {
             }
 
             // 2. Descargar el video físicamente en formato MP4
-            const downloadCmd = `yt-dlp -f "b[ext=mp4]/bv*+ba/b" -o "${outputFilePath}" "${text}"`;
-            await execPromise(downloadCmd);
+            await ytdlp.execPromise([
+                text,
+                '-f', 'b[ext=mp4]/bv*+ba/b',
+                '-o', outputFilePath
+            ]);
 
             // Leer buffer del video descargado
             const videoBuffer = fs.readFileSync(outputFilePath);
@@ -84,7 +84,7 @@ module.exports = {
             // --- 2. SEGUNDO MENSAJE: VIDEO CON TEXTO DIRECTO ---
             await Minato.sendMessage(m.chat, {
                 video: videoBuffer,
-                caption: fbText, // Descripción directa de la publicación
+                caption: fbText,
                 mimetype: 'video/mp4'
             }, { quoted: m.raw });
 
@@ -109,5 +109,3 @@ module.exports = {
         }
     }
 };
-
-

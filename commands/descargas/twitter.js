@@ -1,10 +1,9 @@
-const { exec } = require('child_process');
-const util = require('util');
+const { YtDlp } = require('@distube/yt-dlp');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
-const execPromise = util.promisify(exec);
+const ytdlp = new YtDlp();
 
 module.exports = {
     name: 'x',
@@ -40,10 +39,8 @@ module.exports = {
         const outputFilePath = path.join(outputDir, `twitter_${tempId}.mp4`);
 
         try {
-            // 1. Obtener la información del video en JSON usando yt-dlp
-            const infoCmd = `yt-dlp --dump-json "${text}"`;
-            const { stdout } = await execPromise(infoCmd);
-            const info = JSON.parse(stdout);
+            // 1. Obtener la información del video en JSON
+            const info = await ytdlp.getVideoInfo(text);
 
             const tweetText = info.description || info.title || 'Video de Twitter / X';
             const duration = info.duration_string || `${info.duration || 0}s`;
@@ -74,9 +71,12 @@ module.exports = {
                 await Minato.sendMessage(m.chat, { text: infoCaption }, { quoted: m.raw });
             }
 
-            // 2. Descargar el video físicamente en máxima calidad
-            const downloadCmd = `yt-dlp -f "b[ext=mp4]/bv*+ba/b" -o "${outputFilePath}" "${text}"`;
-            await execPromise(downloadCmd);
+            // 2. Descargar el video físicamente usando el binario integrado
+            await ytdlp.execPromise([
+                text,
+                '-f', 'b[ext=mp4]/bv*+ba/b',
+                '-o', outputFilePath
+            ]);
 
             // Leer el archivo descargado
             const videoBuffer = fs.readFileSync(outputFilePath);
@@ -84,7 +84,7 @@ module.exports = {
             // --- 2DO MENSAJE: VIDEO CON EL TEXTO DIRECTO ---
             await Minato.sendMessage(m.chat, {
                 video: videoBuffer,
-                caption: tweetText, // Solamente la descripción directa del tweet
+                caption: tweetText,
                 mimetype: 'video/mp4'
             }, { quoted: m.raw });
 
@@ -103,7 +103,7 @@ module.exports = {
 
             Minato.sendMessage(
                 m.chat, 
-                { text: '❌ Ocurrió un error al procesar el video con yt-dlp. Asegúrate de que el ejecutable esté instalado correctamente.' }, 
+                { text: '❌ Ocurrió un error al procesar el video de Twitter / X.' }, 
                 { quoted: m.raw }
             );
         }

@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@distube/yt-dlp": "^2.0.1",
     "@whiskeysockets/baileys": "^7.0.0-rc14",
     "axios": "^1.19.0",
     "better-sqlite3": "^12.11.1",
