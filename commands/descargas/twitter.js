@@ -1,7 +1,4 @@
-const YtDlpModule = require('@distube/yt-dlp');
-const YtDlp = YtDlpModule.YtDlp || YtDlpModule.default || YtDlpModule;
-const ytdlp = new YtDlp();
-
+const ytDlp = require('@distube/yt-dlp');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
@@ -38,7 +35,7 @@ module.exports = {
         const outputFilePath = path.join(outputDir, `twitter_${tempId}.mp4`);
 
         try {
-            const info = await ytdlp.getVideoInfo(text);
+            const info = await ytDlp.getVideoInfo(text);
 
             const tweetText = info.description || info.title || 'Video de Twitter / X';
             const duration = info.duration_string || `${info.duration || 0}s`;
@@ -68,7 +65,7 @@ module.exports = {
                 await Minato.sendMessage(m.chat, { text: infoCaption }, { quoted: m.raw });
             }
 
-            await ytdlp.execPromise([
+            await ytDlp.execPromise([
                 text,
                 '-f', 'b[ext=mp4]/bv*+ba/b',
                 '-o', outputFilePath
