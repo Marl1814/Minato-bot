@@ -4,8 +4,21 @@ const pino = require('pino');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const path = require('path');
+const express = require('express');
 
-// --- CARGADOR RECURSIVO DE COMANDOS (Escanea subcarpetas) ---
+// --- SERVIDOR EXPRESS PARA EVITAR EL APAGADO EN RENDER ---
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+    res.send('❀ Minato-Bot en línea 24/7');
+});
+
+app.listen(PORT, () => {
+    console.log(`[HTTP] Servidor activo en puerto ${PORT}`);
+});
+
+// --- CARGADOR RECURSIVO DE COMANDOS ---
 function loadCommands(dir, commandsMap) {
     if (!fs.existsSync(dir)) return;
     const files = fs.readdirSync(dir);
@@ -15,7 +28,7 @@ function loadCommands(dir, commandsMap) {
         const stat = fs.statSync(fullPath);
 
         if (stat.isDirectory()) {
-            loadCommands(fullPath, commandsMap); // Explora carpetas como "pegatinas"
+            loadCommands(fullPath, commandsMap);
         } else if (file.endsWith('.js')) {
             delete require.cache[require.resolve(fullPath)];
             const command = require(fullPath);
@@ -43,14 +56,23 @@ async function startBot() {
     Minato.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
         if (qr) qrcode.generate(qr, { small: true });
-        if (connection === 'open') console.log('❀ Minato-Bot Conectado y Listo para Stickers');
+        
+        if (connection === 'open') {
+            console.log('❀ Minato-Bot Conectado y Listo');
+        }
+        
         if (connection === 'close') {
-            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-            if (shouldReconnect) startBot();
+            const reason = lastDisconnect?.error?.output?.statusCode;
+            const shouldReconnect = reason !== DisconnectReason.loggedOut;
+            console.log(`Conexión cerrada (Causa: ${reason}). Reconectando: ${shouldReconnect}`);
+            
+            if (shouldReconnect) {
+                setTimeout(() => startBot(), 3000); // Reconexión suave con retardo
+            }
         }
     });
 
-    // Cargar mapa de comandos desde carpetas
+    // Cargar mapa de comandos
     Minato.commands = new Map();
     const commandsFolder = path.join(__dirname, 'commands');
     loadCommands(commandsFolder, Minato.commands);
@@ -62,7 +84,7 @@ async function startBot() {
             if (!parsed || !parsed.m) return;
             const { m } = parsed;
 
-            // Evitar procesar mensajes viejos
+            // Evitar procesar mensajes antiguos (>5 min)
             const messageTimestamp = m.raw.messageTimestamp; 
             const currentTimestamp = Math.floor(Date.now() / 1000);
             if ((currentTimestamp - messageTimestamp) > 300) return; 
@@ -73,11 +95,13 @@ async function startBot() {
             const args = msgText.slice(1).trim().split(/ +/);
             const commandName = args.shift().toLowerCase();
 
-            // Buscar y ejecutar comando (ej: #s o #sticker)
             const command = Minato.commands.get(commandName);
             if (command) {
-                console.log(`[STICKER / COMANDO]: #${commandName} | Por: ${m.senderName || m.sender}`);
-                await command.execute({ Minato, m, args });
+                console.log(`[COMANDO]: #${commandName} | Por: ${m.senderName || m.sender}`);
+                // Captura interna para que fallos en stickers/MediaFire no tumben el proceso
+                await command.execute({ Minato, m, args }).catch(err => {
+                    console.error(`Error al ejecutar #${commandName}:`, err);
+                });
             }
 
         } catch (err) {
