@@ -1,0 +1,60 @@
+const Database = require('better-sqlite3');
+const path = require('path');
+
+// Crea el archivo database.sqlite automáticamente en la raíz si no existe
+const db = new Database(path.join(__dirname, '../database.sqlite'));
+
+// Configuración inicial de la tabla
+db.exec(`
+    CREATE TABLE IF NOT EXISTS group_users (
+        group_id TEXT,
+        user_id TEXT,
+        name TEXT DEFAULT 'Usuario',
+        exp INTEGER DEFAULT 0,
+        level INTEGER DEFAULT 1,
+        warns INTEGER DEFAULT 0,
+        messages INTEGER DEFAULT 0,
+        PRIMARY KEY (group_id, user_id)
+    );
+`);
+
+// Preparar consultas rápidas
+const getUserStmt = db.prepare('SELECT * FROM group_users WHERE group_id = ? AND user_id = ?');
+const insertUserStmt = db.prepare(`
+    INSERT INTO group_users (group_id, user_id, name) 
+    VALUES (?, ?, ?)
+    ON CONFLICT(group_id, user_id) DO NOTHING
+`);
+
+const updateUserStmt = db.prepare(`
+    UPDATE group_users 
+    SET name = ?, exp = ?, level = ?, warns = ?, messages = ? 
+    WHERE group_id = ? AND user_id = ?
+`);
+
+module.exports = {
+    // Obtener datos del usuario en un grupo (o crearlo si no existe)
+    getUser(groupId, userId, userName = 'Usuario') {
+        insertUserStmt.run(groupId, userId, userName);
+        return getUserStmt.get(groupId, userId);
+    },
+
+    // Guardar cambios del usuario
+    saveUser(groupId, userId, data) {
+        updateUserStmt.run(
+            data.name,
+            data.exp,
+            data.level,
+            data.warns,
+            data.messages,
+            groupId,
+            userId
+        );
+    },
+
+    // Obtener el Top usuarios de un grupo específico
+    getGroupTop(groupId, limit = 10) {
+        const topStmt = db.prepare('SELECT * FROM group_users WHERE group_id = ? ORDER BY exp DESC LIMIT ?');
+        return topStmt.all(groupId, limit);
+    }
+};
