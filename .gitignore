@@ -1,14 +1,3 @@
-# 2. Inicializar el repositorio Git local
-git init
-
-# 3. Preparar todos los archivos válidos para el subido
-git add .
-
-# 4. Crear el punto de guardado (commit) para inicializar la rama
-git commit -m "Primer commit: Minato Bot"
-
-# 5. Nombrar la rama principal como main
-git branch -M main
-
-# 6. Subir tus archivos a GitHub
-git push -u origin main
+node_modules/
+auth_info/
+.env
