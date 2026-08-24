@@ -1,9 +1,7 @@
-const { YtDlp } = require('@distube/yt-dlp');
+const YtDlp = require('@distube/yt-dlp').default || require('@distube/yt-dlp');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-
-const ytdlp = new YtDlp();
 
 module.exports = {
     name: 'x',
@@ -39,8 +37,8 @@ module.exports = {
         const outputFilePath = path.join(outputDir, `twitter_${tempId}.mp4`);
 
         try {
-            // 1. Obtener la información del video en JSON
-            const info = await ytdlp.getVideoInfo(text);
+            // 1. Obtener la información del video en JSON usando el método estático
+            const info = await YtDlp.getVideoInfo(text);
 
             const tweetText = info.description || info.title || 'Video de Twitter / X';
             const duration = info.duration_string || `${info.duration || 0}s`;
@@ -71,8 +69,8 @@ module.exports = {
                 await Minato.sendMessage(m.chat, { text: infoCaption }, { quoted: m.raw });
             }
 
-            // 2. Descargar el video físicamente usando el binario integrado
-            await ytdlp.execPromise([
+            // 2. Descargar el video físicamente usando el método estático execPromise
+            await YtDlp.execPromise([
                 text,
                 '-f', 'b[ext=mp4]/bv*+ba/b',
                 '-o', outputFilePath

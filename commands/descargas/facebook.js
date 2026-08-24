@@ -1,9 +1,7 @@
-const { YtDlp } = require('@distube/yt-dlp');
+const YtDlp = require('@distube/yt-dlp').default || require('@distube/yt-dlp');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-
-const ytdlp = new YtDlp();
 
 module.exports = {
     name: 'fb',
@@ -39,8 +37,8 @@ module.exports = {
         const outputFilePath = path.join(outputDir, `facebook_${tempId}.mp4`);
 
         try {
-            // 1. Obtener la información del video en JSON mediante @distube/yt-dlp
-            const info = await ytdlp.getVideoInfo(text);
+            // 1. Obtener la información del video en JSON mediante métodos estáticos
+            const info = await YtDlp.getVideoInfo(text);
 
             const fbText = info.description || info.title || 'Video de Facebook';
             const duration = info.duration_string || (info.duration ? `${info.duration}s` : 'Desconocida');
@@ -72,7 +70,7 @@ module.exports = {
             }
 
             // 2. Descargar el video físicamente en formato MP4
-            await ytdlp.execPromise([
+            await YtDlp.execPromise([
                 text,
                 '-f', 'b[ext=mp4]/bv*+ba/b',
                 '-o', outputFilePath
