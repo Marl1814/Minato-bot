@@ -1,4 +1,4 @@
-const YtDlp = require('@distube/yt-dlp').default || require('@distube/yt-dlp');
+const ytDlp = require('yt-dlp-exec');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
@@ -37,8 +37,13 @@ module.exports = {
         const outputFilePath = path.join(outputDir, `facebook_${tempId}.mp4`);
 
         try {
-            // 1. Obtener la información del video en JSON mediante métodos estáticos
-            const info = await YtDlp.getVideoInfo(text);
+            // 1. Obtener la información del video
+            const info = await ytDlp(text, {
+                dumpSingleJson: true,
+                noWarnings: true,
+                noCallHome: true,
+                preferFreeFormats: true
+            });
 
             const fbText = info.description || info.title || 'Video de Facebook';
             const duration = info.duration_string || (info.duration ? `${info.duration}s` : 'Desconocida');
@@ -69,12 +74,11 @@ module.exports = {
                 await Minato.sendMessage(m.chat, { text: infoCaption }, { quoted: m.raw });
             }
 
-            // 2. Descargar el video físicamente en formato MP4
-            await YtDlp.execPromise([
-                text,
-                '-f', 'b[ext=mp4]/bv*+ba/b',
-                '-o', outputFilePath
-            ]);
+            // 2. Descargar el video
+            await ytDlp(text, {
+                format: 'b[ext=mp4]/bv*+ba/b',
+                output: outputFilePath
+            });
 
             // Leer buffer del video descargado
             const videoBuffer = fs.readFileSync(outputFilePath);
@@ -92,7 +96,7 @@ module.exports = {
             }
 
         } catch (e) {
-            console.error('Error con yt-dlp en Facebook:', e);
+            console.error('Error con yt-dlp-exec en Facebook:', e);
 
             // Limpieza en caso de fallo
             if (fs.existsSync(outputFilePath)) {

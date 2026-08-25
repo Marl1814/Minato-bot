@@ -1,4 +1,4 @@
-const ytDlp = require('@distube/yt-dlp');
+const ytDlp = require('yt-dlp-exec');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
@@ -35,10 +35,16 @@ module.exports = {
         const outputFilePath = path.join(outputDir, `twitter_${tempId}.mp4`);
 
         try {
-            const info = await ytDlp.getVideoInfo(text);
+            // Obtener metadatos en formato JSON
+            const info = await ytDlp(text, {
+                dumpSingleJson: true,
+                noWarnings: true,
+                noCallHome: true,
+                preferFreeFormats: true
+            });
 
             const tweetText = info.description || info.title || 'Video de Twitter / X';
-            const duration = info.duration_string || `${info.duration || 0}s`;
+            const duration = info.duration_string || (info.duration ? `${info.duration}s` : 'Desconocida');
             const thumbUrl = info.thumbnail;
 
             const infoCaption = 
@@ -65,11 +71,11 @@ module.exports = {
                 await Minato.sendMessage(m.chat, { text: infoCaption }, { quoted: m.raw });
             }
 
-            await ytDlp.execPromise([
-                text,
-                '-f', 'b[ext=mp4]/bv*+ba/b',
-                '-o', outputFilePath
-            ]);
+            // Descargar el video usando la sintaxis de yt-dlp-exec
+            await ytDlp(text, {
+                format: 'b[ext=mp4]/bv*+ba/b',
+                output: outputFilePath
+            });
 
             const videoBuffer = fs.readFileSync(outputFilePath);
 
@@ -84,7 +90,7 @@ module.exports = {
             }
 
         } catch (e) {
-            console.error('Error con yt-dlp en Twitter:', e);
+            console.error('Error con yt-dlp-exec en Twitter:', e);
 
             if (fs.existsSync(outputFilePath)) {
                 fs.unlinkSync(outputFilePath);
@@ -98,3 +104,4 @@ module.exports = {
         }
     }
 };
+
