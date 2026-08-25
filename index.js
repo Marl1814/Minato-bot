@@ -6,6 +6,25 @@ const fs = require('fs');
 const path = require('path');
 const express = require('express');
 
+// --- BASE DE DATOS LOCAL ---
+const DB_PATH = path.join(__dirname, 'database.json');
+let db = { users: {}, disabledGroups: [] };
+
+function loadDatabase() {
+    if (fs.existsSync(DB_PATH)) {
+        try {
+            db = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+            if (!db.users) db.users = {};
+            if (!db.disabledGroups) db.disabledGroups = [];
+        } catch (e) {
+            console.error('Error al cargar database.json:', e);
+        }
+    } else {
+        fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
+    }
+}
+loadDatabase();
+
 // --- SERVIDOR EXPRESS PARA EVITAR EL APAGADO EN RENDER ---
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -67,7 +86,7 @@ async function startBot() {
             console.log(`Conexión cerrada (Causa: ${reason}). Reconectando: ${shouldReconnect}`);
             
             if (shouldReconnect) {
-                setTimeout(() => startBot(), 3000); // Reconexión suave con retardo
+                setTimeout(() => startBot(), 3000);
             }
         }
     });
@@ -95,11 +114,48 @@ async function startBot() {
             const args = msgText.slice(1).trim().split(/ +/);
             const commandName = args.shift().toLowerCase();
 
+            // --- EVALUACIÓN DE CONTEXTO Y PERMISOS ---
+            const isGroup = m.chat.endsWith('@g.us');
+            const owners = ['51900000000@s.whatsapp.net']; // Coloca tu número de creador/dueño aquí
+            const isOwner = owners.includes(m.sender);
+
+            let isAdmin = false;
+            if (isGroup) {
+                const groupMetadata = await Minato.groupMetadata(m.chat).catch(() => ({ participants: [] }));
+                const participants = groupMetadata.participants || [];
+                isAdmin = participants.some(p => p.admin !== null && p.id === m.sender);
+            }
+
+            const isBotOff = db.disabledGroups.includes(m.chat);
+
+            // Bloquear respuesta a cualquier comando si el grupo está apagado (excepto minon)
+            if (isGroup && isBotOff && commandName !== 'minon') return;
+
+            // --- COMANDO APAGAR (minoff) ---
+            if (commandName === 'minoff' && isGroup) {
+                if (!isOwner && !isAdmin) return;
+                if (db.disabledGroups.includes(m.chat)) return;
+
+                db.disabledGroups.push(m.chat);
+                fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
+                return await Minato.sendMessage(m.chat, { text: '❀ Bot desactivado para este grupo.' }, { quoted: m.raw });
+            }
+
+            // --- COMANDO ENCENDER (minon) ---
+            if (commandName === 'minon' && isGroup) {
+                if (!isOwner && !isAdmin) return;
+                if (!db.disabledGroups.includes(m.chat)) return;
+
+                db.disabledGroups = db.disabledGroups.filter(id => id !== m.chat);
+                fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
+                return await Minato.sendMessage(m.chat, { text: '❀ Bot reactivado.' }, { quoted: m.raw });
+            }
+
+            // --- EJECUCIÓN DEL RESTO DE COMANDOS ---
             const command = Minato.commands.get(commandName);
             if (command) {
                 console.log(`[COMANDO]: #${commandName} | Por: ${m.senderName || m.sender}`);
-                // Captura interna para que fallos en stickers/MediaFire no tumben el proceso
-                await command.execute({ Minato, m, args }).catch(err => {
+                await command.execute({ Minato, m, args, db }).catch(err => {
                     console.error(`Error al ejecutar #${commandName}:`, err);
                 });
             }
