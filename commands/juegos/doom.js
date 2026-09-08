@@ -1,136 +1,46 @@
-// Archivo: commands/juegos/doom.js
-const { sendHtmlGame } = require('../../htmlTransport');
+const path = require('path');
+const { sendHtmlGame } = require(path.join(__dirname, '../../htmlTransport'));
 
-function getRealDoomHtml() {
-    return `<!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<style>
-    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
-    body { background: #000; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; height: 100vh; }
-    
-    #screen-container { position: relative; width: 100%; max-width: 400px; height: 240px; background: #000; margin-top: 5px; display: flex; justify-content: center; align-items: center; border: 2px solid #333; }
-    canvas { width: 100%; height: 100%; image-rendering: pixelated; display: block; }
-    
-    #loading-box { position: absolute; width: 80%; text-align: center; color: #f00; font-weight: bold; font-size: 13px; z-index: 10; }
-    .progress-bar-container { width: 100%; height: 14px; background: #222; border: 1px solid #555; border-radius: 7px; margin-top: 8px; overflow: hidden; }
-    .progress-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #800, #f00); transition: width 0.2s ease; }
-
-    #controls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; width: 100%; max-width: 360px; padding: 8px; margin-top: 4px; }
-    .btn { background: #222; color: #fff; border: 1px solid #555; padding: 12px 0; font-weight: bold; border-radius: 6px; text-align: center; font-size: 14px; touch-action: manipulation; }
-    .btn:active { background: #555; }
-    .btn-fire { background: #800; border-color: #f00; color: #fff; grid-column: span 2; }
-    .btn-action { background: #080; border-color: #0f0; color: #fff; grid-column: span 2; }
-    .btn-enter { background: #880; border-color: #ff0; color: #000; grid-column: span 4; font-size: 13px; padding: 8px 0; }
-</style>
-</head>
-<body>
-
-<div id="screen-container">
-    <div id="loading-box">
-        <div id="status-text">CARGANDO RECURSOS (0%)...</div>
-        <div class="progress-bar-container">
-            <div id="progress-bar" class="progress-bar"></div>
-        </div>
-    </div>
-    <canvas id="canvas" width="320" height="200"></canvas>
-</div>
-
-<div id="controls">
-    <div class="btn btn-enter" id="btnEnter"> [ ENTER / START ] </div>
-    
-    <div></div><div class="btn" id="btnU">▲</div><div></div><div></div>
-    <div class="btn" id="btnL">◄</div><div class="btn" id="btnD">▼</div><div class="btn" id="btnR">►</div><div></div>
-    
-    <div class="btn btn-fire" id="btnF">🔥 DISPARAR (CTRL)</div>
-    <div class="btn btn-action" id="btnE">🚪 ABRIR (ESPACIO)</div>
-</div>
-
-<script type="module">
-const progressBar = document.getElementById('progress-bar');
-const statusText = document.getElementById('status-text');
-const loadingBox = document.getElementById('loading-box');
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-
-function updateProgress(percent, label) {
-    progressBar.style.width = percent + '%';
-    statusText.innerText = \`\${label} (\${percent}%)\`;
+function gameFrame(title, subtitle, body, script) {
+    return `<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html,body{margin:0;padding:0;width:100%;background:transparent;font-family:Arial,sans-serif;color:#f8fafc;touch-action:manipulation}
+.gw{width:100%;max-width:620px;margin:auto;padding:8px}.head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px}.title{font-weight:900;font-size:16px}.sub{font-size:9px;color:#94a3b8;margin-top:2px}.brand{font-size:8px;color:#64748b;text-align:center;margin-top:6px;letter-spacing:.7px}.panel{background:#0f172a;border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:8px;overflow:hidden}.row{display:flex;gap:8px;margin-top:8px}.btn{flex:1;min-height:48px;border:1px solid rgba(255,255,255,.18);border-radius:12px;background:#1e293b;color:white;font-weight:800;font-size:12px;touch-action:none}.btn:active{filter:brightness(1.5);transform:scale(.98)}canvas{display:block;width:100%;height:auto;border-radius:12px;background:#020617;touch-action:none}.stat{font-size:11px;font-weight:800;color:#facc15}.hint{font-size:10px;color:#cbd5e1;text-align:center;margin-top:6px;line-height:1.35}
+</style><div class="gw"><div class="head"><div><div class="title">${title}</div><div class="sub">${subtitle}</div></div><div class="stat" id="stat"></div></div><div class="panel">${body}</div><div class="brand">GAMESWHATS · HTML MINI GAME</div></div><script>(function(){${script}})()</script>`;
 }
 
-// Monitoreo simulado de descarga de recursos
-let currentProgress = 10;
-updateProgress(currentProgress, 'DESCARGANDO WASM');
+function getGameHtml() {
+    const body = `<canvas id="c" width="520" height="300"></canvas><div class="row"><button class="btn" id="left">IZQUIERDA</button><button class="btn" id="shoot">DISPARAR</button><button class="btn" id="right">DERECHA</button></div><div class="hint">Elimina enemigos antes de que lleguen a tu posición.</div>`;
 
-const progressInterval = setInterval(() => {
-    if (currentProgress < 85) {
-        currentProgress += Math.floor(Math.random() * 10) + 5;
-        if (currentProgress > 85) currentProgress = 85;
-        updateProgress(currentProgress, currentProgress < 50 ? 'DESCARGANDO WASM' : 'CARGANDO ARCHIVO WAD');
-    }
-}, 250);
+    const script = `
+var c=document.getElementById('c'),x=c.getContext('2d'),stat=document.getElementById('stat'),W=c.width,H=c.height;
+var p,enemies,shots,score,hp,frame,dead,l=false,r=false;
+function reset(){p={x:W/2-16,y:H-38,w:32,h:24};enemies=[];shots=[];score=0;hp=5;frame=0;dead=false;l=false;r=false;stat.textContent='BAJAS 0 · HP 5'}
+function spawn(){enemies.push({x:20+Math.random()*(W-48),y:-25,w:28,h:28,v:1.2+Math.random()*1.6+score/80,hp:1+(score>20&&Math.random()<.25?1:0)})}
+function shoot(){if(dead){reset();return}shots.push({x:p.x+p.w/2-2,y:p.y-8,w:4,h:12,v:7})}
+function box(a,b){return a.x+a.w>b.x&&a.x<b.x+b.w&&a.y+a.h>b.y&&a.y<b.y+b.h}
+function update(){if(dead)return;frame++;if(frame%45===0)spawn();if(l)p.x-=4.5;if(r)p.x+=4.5;p.x=Math.max(0,Math.min(W-p.w,p.x));for(var s=shots.length-1;s>=0;s--){shots[s].y-=shots[s].v;if(shots[s].y<-20)shots.splice(s,1)}for(var e=enemies.length-1;e>=0;e--){var en=enemies[e];en.y+=en.v;for(var k=shots.length-1;k>=0;k--){if(box(en,shots[k])){shots.splice(k,1);en.hp--;if(en.hp<=0){enemies.splice(e,1);score++;break}}}if(e<enemies.length&&enemies[e]===en){if(en.y>H){enemies.splice(e,1);hp--;if(hp<=0)dead=true}else if(box(en,p)){enemies.splice(e,1);hp--;if(hp<=0)dead=true}}}stat.textContent='BAJAS '+score+' · HP '+hp}
+function draw(){x.fillStyle='#160b0b';x.fillRect(0,0,W,H);x.strokeStyle='rgba(248,113,113,.08)';for(var gy=0;gy<H;gy+=35){x.beginPath();x.moveTo(0,gy);x.lineTo(W,gy);x.stroke()}x.fillStyle='#f8fafc';for(var s=0;s<shots.length;s++)x.fillRect(shots[s].x,shots[s].y,shots[s].w,shots[s].h);for(var e=0;e<enemies.length;e++){var en=enemies[e];x.fillStyle=en.hp>1?'#fb923c':'#dc2626';x.fillRect(en.x,en.y,en.w,en.h);x.fillStyle='#111827';x.fillRect(en.x+5,en.y+7,5,5);x.fillRect(en.x+18,en.y+7,5,5)}x.fillStyle='#94a3b8';x.fillRect(p.x,p.y,p.w,p.h);x.fillStyle='#ef4444';x.fillRect(p.x+13,p.y-7,6,10);if(dead){x.fillStyle='rgba(0,0,0,.78)';x.fillRect(0,0,W,H);x.fillStyle='#f87171';x.textAlign='center';x.font='900 28px Arial';x.fillText('GAME OVER',W/2,130);x.fillStyle='#fff';x.font='700 13px Arial';x.fillText('Pulsa DISPARAR para reiniciar',W/2,160);x.textAlign='left'}}
+function hold(id,key){var b=document.getElementById(id);b.onpointerdown=function(e){e.preventDefault();if(key==='l')l=true;else r=true};['pointerup','pointerleave','pointercancel'].forEach(function(n){b.addEventListener(n,function(){if(key==='l')l=false;else r=false})})}hold('left','l');hold('right','r');document.getElementById('shoot').onpointerdown=function(e){e.preventDefault();shoot()};function loop(){update();draw();requestAnimationFrame(loop)}reset();loop();
+`;
 
-import { DOOM } from 'https://cdn.jsdelivr.net/npm/wasm-doom@1.0.4/+esm';
-
-const game = new DOOM({
-    screenWidth: 320,
-    screenHeight: 200,
-    wasmURL: 'https://cdn.jsdelivr.net/npm/wasm-doom@1.0.4/wasm/doom.wasm',
-    onFrameRender: ({ screen }) => {
-        if (loadingBox.style.display !== 'none') {
-            clearInterval(progressInterval);
-            updateProgress(100, '¡LISTO!');
-            setTimeout(() => { loadingBox.style.display = 'none'; }, 300);
-        }
-        const frame = new ImageData(new Uint8ClampedArray(screen.buffer), 320, 200);
-        ctx.putImageData(frame, 0, 0);
-    }
-});
-
-await game.start();
-
-// Controles táctiles
-const keyMap = {
-    'U': 'ArrowUp', 'D': 'ArrowDown', 'L': 'ArrowLeft', 'R': 'ArrowRight',
-    'FIRE': 'Control', 'USE': ' ', 'ENTER': 'Enter'
-};
-
-function sendKey(keyName, isDown) {
-    const code = keyMap[keyName];
-    if (!code) return;
-    const eventType = isDown ? 'keydown' : 'keyup';
-    window.dispatchEvent(new KeyboardEvent(eventType, { key: code, code: code, bubbles: true }));
-}
-
-const bindTouch = (id, keyName) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener('touchstart', (e) => { e.preventDefault(); sendKey(keyName, true); });
-    el.addEventListener('touchend', (e) => { e.preventDefault(); sendKey(keyName, false); });
-    el.addEventListener('mousedown', (e) => { e.preventDefault(); sendKey(keyName, true); });
-    el.addEventListener('mouseup', (e) => { e.preventDefault(); sendKey(keyName, false); });
-};
-
-bindTouch('btnU', 'U'); bindTouch('btnD', 'D'); bindTouch('btnL', 'L'); bindTouch('btnR', 'R');
-bindTouch('btnF', 'FIRE'); bindTouch('btnE', 'USE'); bindTouch('btnEnter', 'ENTER');
-</script>
-
-</body>
-</html>`;
+    return gameFrame('MINI DOOM', 'ARENA SHOOTER', body, script);
 }
 
 module.exports = {
     name: 'doom',
-    aliases: ['doom3d', 'realdoom'],
-    description: 'Ejecuta el DOOM original (1993) en WebAssembly.',
+    aliases: ['doom', 'minidoom', 'shooter'],
+    category: 'juegos',
+    description: 'Mini Doom - Arena shooter simple. Elimina enemigos antes de que te alcancen.',
     async execute({ Minato, m }) {
         try {
-            const html = getRealDoomHtml();
-            await sendHtmlGame(Minato, m.chat, html, 'DOOM (1993) - Original Wasm');
+            const html = getGameHtml();
+            await sendHtmlGame(Minato, m.chat, html, 'MINI DOOM');
         } catch (err) {
-            console.error('Error al enviar DOOM Real:', err);
-            await Minato.sendMessage(m.chat, { text: '❌ No se pudo inicializar el motor WASM de DOOM.' }, { quoted: m.raw });
+            console.error('Error al enviar Mini Doom:', err);
+            await Minato.sendMessage(m.chat, {
+                text: '❌ Tu versión de WhatsApp o cliente actual no soporta el renderizado interactivo de Meta AI.'
+            }, { quoted: m.raw });
         }
     }
 };
